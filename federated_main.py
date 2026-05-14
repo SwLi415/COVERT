@@ -19,7 +19,7 @@ from utils import get_dataset, average_weights, exp_details
 from resnet import ResNet18
 from get_target_neuron import get_top_k_neurons
 from generate_trigger import optimize_backdoor_trigger_weights_based
-from timm.models import create_model
+from astroformer import astroformer_3
 
 
 device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
@@ -88,8 +88,7 @@ if __name__ == '__main__':
         global_model = ResNet18(10)
         # global_model.load_state_dict(torch.load('./pretrained/cifar/global_model_cifar.pth'))
     elif args.dataset == 'tinyimagenet':
-        global_model = create_model(
-            'astroformer_3',
+        global_model = astroformer_3(
             pretrained=False,
             in_chans=3,
             num_classes=200,

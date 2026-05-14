@@ -1399,3 +1399,37 @@ model_cfgs = dict(
         head_hidden_size=2048,
     ),
 )
+
+
+def _create_astroformer(variant, pretrained=False, **kwargs):
+    if pretrained:
+        raise NotImplementedError(
+            "Pretrained weights are not provided through the local astroformer entrypoints."
+        )
+    if variant not in model_cfgs:
+        raise ValueError(f"Unknown astroformer variant: {variant}")
+    return MaxxVit(cfg=model_cfgs[variant], **kwargs)
+
+
+def astroformer_0(pretrained=False, **kwargs):
+    return _create_astroformer("astroformer_0", pretrained=pretrained, **kwargs)
+
+
+def astroformer_1(pretrained=False, **kwargs):
+    return _create_astroformer("astroformer_1", pretrained=pretrained, **kwargs)
+
+
+def astroformer_2(pretrained=False, **kwargs):
+    return _create_astroformer("astroformer_2", pretrained=pretrained, **kwargs)
+
+
+def astroformer_3(pretrained=False, **kwargs):
+    return _create_astroformer("astroformer_3", pretrained=pretrained, **kwargs)
+
+
+def astroformer_4(pretrained=False, **kwargs):
+    return _create_astroformer("astroformer_4", pretrained=pretrained, **kwargs)
+
+
+def astroformer_5(pretrained=False, **kwargs):
+    return _create_astroformer("astroformer_5", pretrained=pretrained, **kwargs)
