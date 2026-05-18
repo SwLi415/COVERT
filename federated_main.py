@@ -115,10 +115,10 @@ if __name__ == '__main__':
         if 'weight' in name and len(param.shape) == 4:
             conv_layers[name] = True
 
-    print(f"找到以下卷积层: {list(conv_layers.keys())}")
+    print(f"Found the following convolutional layers: {list(conv_layers.keys())}")
 
     benign_label = [True] * args.num_users
-    print('初始化本地模型动态标签:', benign_label)
+    print('Initialized local model dynamic labels:', benign_label)
 
     for epoch in tqdm(range(args.epochs)):
         local_weights, local_losses = [], []

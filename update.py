@@ -22,7 +22,6 @@ poison_label_swap = 2
 
 
 class TargetNeuronActivation:
-    """用于保存目标神经元激活值的辅助类。"""
 
     def __init__(self, target_neuton_index):
         self.activation = None
@@ -33,7 +32,6 @@ class TargetNeuronActivation:
 
 
 class DatasetSplit(Dataset):
-    """对原始数据集按指定索引进行切分。"""
 
     def __init__(self, dataset, idxs):
         self.dataset = dataset

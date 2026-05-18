@@ -26,7 +26,7 @@ def optimize_backdoor_trigger_weights_based(model, layer_neuron_indices, target_
         if position[0] < input_shape[0] and position[1] < input_shape[1] and position[2] < input_shape[2]:
             mask[position[0], position[1], position[2]] = 1.0
         else:
-            print(f"警告: 位置 [{position[0]},{position[1]},{position[2]}] 超出图像范围 {input_shape}")
+            print(f"Warning: position [{position[0]},{position[1]},{position[2]}] is out of image bounds {input_shape}")
 
     train_images = []
     train_labels = []
@@ -52,9 +52,9 @@ def optimize_backdoor_trigger_weights_based(model, layer_neuron_indices, target_
         train_images = torch.cat(train_images, dim=0).to(device)
         train_labels = torch.cat(train_labels, dim=0).to(device)
 
-        print(f"收集了 {len(train_images)} 个训练样本用于模拟训练")
+        print(f"Collected {len(train_images)} training samples for simulated training")
     else:
-        print("警告: 未提供训练数据，将使用随机生成的数据")
+        print("Warning: no training data provided, random data will be used")
         train_images = torch.rand(num_train_samples, *input_shape, device=device)
         train_labels = torch.randint(0, 10, (num_train_samples,), device=device)
 
@@ -85,7 +85,6 @@ def optimize_backdoor_trigger_weights_based(model, layer_neuron_indices, target_
     best_iteration = -1
 
     class SaveActivations(torch.nn.Module):
-        """用于记录中间层激活的辅助模块。"""
 
         def __init__(self):
             super().__init__()
@@ -178,7 +177,7 @@ def optimize_backdoor_trigger_weights_based(model, layer_neuron_indices, target_
 
         try:
             if not total_loss.requires_grad:
-                print(f"警告: 第 {iteration + 1} 次迭代的损失没有梯度")
+                print(f"Warning: the loss in iteration {iteration + 1} has no gradient")
                 total_loss = weight_increase_loss + torch.mean(trigger) * 0.0001
 
             history['loss'].append(total_loss.item())
@@ -188,13 +187,13 @@ def optimize_backdoor_trigger_weights_based(model, layer_neuron_indices, target_
                 best_loss = current_loss
                 best_trigger = trigger.clone().detach().cpu()
                 best_iteration = iteration
-                print(f"在迭代 {iteration + 1} 时发现更好的触发器，损失 {best_loss:.4f}")
+                print(f"Found a better trigger at iteration {iteration + 1}, loss {best_loss:.4f}")
 
             total_loss.backward()
             trigger_optimizer.step()
 
         except RuntimeError as e:
-            print(f"迭代 {iteration + 1} 出错: {e}")
+            print(f"Iteration {iteration + 1} failed: {e}")
             history['loss'].append(float('nan'))
 
             fallback_loss = torch.mean(trigger * 0.1)
@@ -202,12 +201,12 @@ def optimize_backdoor_trigger_weights_based(model, layer_neuron_indices, target_
             trigger_optimizer.step()
 
         if (iteration + 1) % 10 == 0:
-            print(f"迭代 {iteration + 1}/{num_iterations}:")
-            print(f"  权重增大损失: {weight_increase_loss.item():.4f}")
-            print(f"  平均权重变化: {avg_weight_change:.6f}")
-            print(f"  当前最优: {best_loss:.4f} (迭代 {best_iteration + 1})")
+            print(f"Iteration {iteration + 1}/{num_iterations}:")
+            print(f"  Weight increase loss: {weight_increase_loss.item():.4f}")
+            print(f"  Average weight change: {avg_weight_change:.6f}")
+            print(f"  Current best: {best_loss:.4f} (iteration {best_iteration + 1})")
 
-    print(f"优化完成。最佳触发器来自迭代 {best_iteration + 1}/{num_iterations}，损失 {best_loss:.4f}")
+    print(f"Optimization completed. The best trigger came from iteration {best_iteration + 1}/{num_iterations}, loss {best_loss:.4f}")
 
     if best_trigger is None:
         best_trigger = trigger.detach().cpu()

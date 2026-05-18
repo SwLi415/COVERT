@@ -63,5 +63,5 @@ if __name__ == "__main__":
 
     test_dataset = GTSRBDataset(root_dir=root_dir, train=False, transform=transform)
 
-    print(f"训练集大小: {len(train_dataset)}")
-    print(f"测试集大小: {len(test_dataset)}")
+    print(f"Training set size: {len(train_dataset)}")
+    print(f"Test set size: {len(test_dataset)}")

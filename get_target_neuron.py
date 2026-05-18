@@ -8,7 +8,7 @@ def get_top_k_neurons(weight_history, ratio):
     neuron_stats = {}
 
     for name, weights_list in weight_history.items():
-        print(f"\n分析层: {name}")
+        print(f"\nAnalyzing layer: {name}")
 
         weights_array = np.array(weights_list)
 
