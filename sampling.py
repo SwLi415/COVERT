@@ -14,10 +14,6 @@ def _iid_partition_indices(dataset_len, num_users, divisor=1):
 
 
 def _dirichlet_noniid_partition(labels, num_users, alpha=0.5):
-    """
-    Dirichlet non-IID partition with guaranteed minimum samples per client.
-    Output format remains unchanged.
-    """
     labels = np.array(labels)
     n_samples = len(labels)
     n_classes = len(np.unique(labels))
@@ -73,16 +69,10 @@ def _get_gtsrb_labels(dataset):
 
 
 def cifar_iid(dataset, num_users):
-    """
-    Sample I.I.D. client data from CIFAR10 dataset.
-    """
     return _iid_partition_indices(len(dataset), num_users)
 
 
 def cifar_noniid(dataset, num_users, alpha=0.5):
-    """
-    Dirichlet non-IID partition for CIFAR10.
-    """
     return _dirichlet_noniid_partition(dataset.targets, num_users, alpha)
 
 

@@ -1,4 +1,3 @@
-# This code is heavily based on https://github.com/huggingface/pytorch-image-models
 import sys
 from dataclasses import dataclass, field
 from typing import Optional, Tuple, Union
@@ -41,7 +40,7 @@ from torch.jit import Final
 @dataclass
 class MaxxVitTransformerCfg:
     dim_head: int = 32
-    head_first: bool = True  # head ordering in qkv channel dim
+    head_first: bool = True
     expand_ratio: float = 4.0
     expand_first: bool = True
     shortcut_bias: bool = True
@@ -50,15 +49,15 @@ class MaxxVitTransformerCfg:
     proj_drop: float = 0.0
     pool_type: str = "avg2"
     rel_pos_type: str = "bias"
-    rel_pos_dim: int = 512  # for relative position types w/ MLP
+    rel_pos_dim: int = 512
     partition_ratio: int = 32
     window_size: Optional[Tuple[int, int]] = None
     grid_size: Optional[Tuple[int, int]] = None
     no_block_attn: bool = (
-        False  # disable window block attention for maxvit (ie only grid)
+        False 
     )
     use_nchw_attn: bool = (
-        False  # for MaxViT variants (not used for CoAt), keep tensors in NCHW order
+        False
     )
     init_values: Optional[float] = None
     act_layer: str = "gelu"
@@ -80,30 +79,29 @@ class MaxxVitConvCfg:
     block_type: str = "mbconv"
     expand_ratio: float = 4.0
     expand_output: bool = (
-        True  # calculate expansion channels from output (vs input chs)
+        True 
     )
     kernel_size: int = 3
-    group_size: int = 1  # 1 == depthwise
-    pre_norm_act: bool = False  # activation after pre-norm
-    output_bias: bool = True  # bias for shortcut + final 1x1 projection conv
-    stride_mode: str = "dw"  # stride done via one of 'pool', '1x1', 'dw'
+    group_size: int = 1 
+    pre_norm_act: bool = False
+    output_bias: bool = True
+    stride_mode: str = "dw"
     pool_type: str = "avg2"
     downsample_pool_type: str = "avg2"
     padding: str = ""
     attn_early: bool = (
-        False  # apply attn between conv2 and norm2, instead of after norm2
+        False  
     )
     attn_layer: str = "se"
     attn_act_layer: str = "silu"
     attn_ratio: float = 0.25
-    init_values: Optional[float] = 1e-6  # for ConvNeXt block, ignored by MBConv
+    init_values: Optional[float] = 1e-6 
     act_layer: str = "gelu"
     norm_layer: str = ""
     norm_layer_cl: str = ""
     norm_eps: Optional[float] = None
 
     def __post_init__(self):
-        # mbconv vs convnext blocks have different defaults, set in post_init to avoid explicit config args
         assert self.block_type in ("mbconv", "convnext")
         use_mbconv = self.block_type == "mbconv"
         if not self.norm_layer:
@@ -132,8 +130,6 @@ class AstroformerCfg:
 
 class Attention2d(nn.Module):
     fused_attn: Final[bool]
-
-    """ multi-head attention for 2D NCHW tensors"""
 
     def __init__(
         self,
@@ -211,7 +207,6 @@ class Attention2d(nn.Module):
 
 
 class AttentionCl(nn.Module):
-    """Channels-last multi-head attention (B, ..., C)"""
 
     fused_attn: Final[bool]
 
@@ -316,12 +311,6 @@ class LayerScale2d(nn.Module):
 
 
 class Downsample2d(nn.Module):
-    """A downsample pooling module supporting several maxpool and avgpool modes
-    * 'max' - MaxPool2d w/ kernel_size 3, stride 2, padding 1
-    * 'max2' - MaxPool2d w/ kernel_size = stride = 2
-    * 'avg' - AvgPool2d w/ kernel_size 3, stride 2, padding 1
-    * 'avg2' - AvgPool2d w/ kernel_size = stride = 2
-    """
 
     def __init__(
         self,
@@ -358,8 +347,8 @@ class Downsample2d(nn.Module):
             self.expand = nn.Identity()
 
     def forward(self, x):
-        x = self.pool(x)  # spatial downsample
-        x = self.expand(x)  # expand chs
+        x = self.pool(x) 
+        x = self.expand(x) 
         return x
 
 
@@ -378,7 +367,6 @@ def _init_transformer(module, name, scheme=""):
             if module.bias is not None:
                 nn.init.zeros_(module.bias)
         else:
-            # vit like
             nn.init.xavier_uniform_(module.weight)
             if module.bias is not None:
                 if "mlp" in name:
@@ -388,14 +376,6 @@ def _init_transformer(module, name, scheme=""):
 
 
 class TransformerBlock2d(nn.Module):
-    """Transformer block with 2D downsampling
-    '2D' NCHW tensor layout
-
-    Some gains can be seen on GPU using a 1D / CL block, BUT w/ the need to switch back/forth to NCHW
-    for spatial pooling, the benefit is minimal so ended up using just this variant for CoAt configs.
-
-    This impl was faster on TPU w/ PT XLA than the 1D experiment.
-    """
 
     def __init__(
         self,
@@ -484,7 +464,6 @@ def _init_conv(module, name, scheme=""):
             if module.bias is not None:
                 nn.init.zeros_(module.bias)
         else:
-            # efficientnet like
             fan_out = (
                 module.kernel_size[0] * module.kernel_size[1] * module.out_channels
             )
@@ -495,16 +474,14 @@ def _init_conv(module, name, scheme=""):
 
 
 def num_groups(group_size, channels):
-    if not group_size:  # 0 or None
-        return 1  # normal conv with 1 group
+    if not group_size:  
+        return 1  
     else:
-        # NOTE group_size == 1 -> depthwise conv
         assert channels % group_size == 0
         return channels // group_size
 
 
 class MbConvBlock(nn.Module):
-    """Pre-Norm Conv Block - 1x1 - kxk - 1x1, w/ inverted bottleneck (expand)"""
 
     def __init__(
         self,
@@ -538,11 +515,8 @@ class MbConvBlock(nn.Module):
         assert cfg.stride_mode in ("pool", "1x1", "dw")
         stride_pool, stride_1, stride_2 = 1, 1, 1
         if cfg.stride_mode == "pool":
-            # NOTE this is not described in paper, experiment to find faster option that doesn't stride in 1x1
             stride_pool, dilation_2 = stride, dilation[1]
-            # FIXME handle dilation of avg pool
         elif cfg.stride_mode == "1x1":
-            # NOTE I don't like this option described in paper, 1x1 w/ stride throws info away
             stride_1, dilation_2 = stride, dilation[1]
         else:
             stride_2, dilation_2 = stride, dilation[0]
@@ -575,7 +549,6 @@ class MbConvBlock(nn.Module):
                     cfg.attn_ratio * (out_chs if cfg.expand_output else mid_chs)
                 )
 
-        # two different orderings for SE and norm2 (due to some weights and trials using SE before norm2)
         if cfg.attn_early:
             self.se_early = create_attn(cfg.attn_layer, mid_chs, **attn_kwargs)
             self.norm2 = norm_act_layer(mid_chs)
@@ -596,11 +569,9 @@ class MbConvBlock(nn.Module):
         x = self.pre_norm(x)
         x = self.down(x)
 
-        # 1x1 expansion conv & norm-act
         x = self.conv1_1x1(x)
         x = self.norm1(x)
 
-        # depthwise / grouped 3x3 conv w/ SE (or other) channel attention & norm-act
         x = self.conv2_kxk(x)
         if self.se_early is not None:
             x = self.se_early(x)
@@ -608,14 +579,12 @@ class MbConvBlock(nn.Module):
         if self.se is not None:
             x = self.se(x)
 
-        # 1x1 linear projection to output width
         x = self.conv3_1x1(x)
         x = self.drop_path(x) + shortcut
         return x
 
 
 class ConvNeXtBlock(nn.Module):
-    """ConvNeXt Block"""
 
     def __init__(
         self,
@@ -651,7 +620,6 @@ class ConvNeXtBlock(nn.Module):
 
         assert cfg.stride_mode in ("pool", "dw")
         stride_pool, stride_dw = 1, 1
-        # FIXME handle dilation?
         if cfg.stride_mode == "pool":
             stride_pool = stride
         else:
@@ -729,7 +697,7 @@ def window_partition(x, window_size: List[int]):
     return windows
 
 
-@register_notrace_function  # reason: int argument is a Proxy
+@register_notrace_function  
 def window_reverse(windows, window_size: List[int], img_size: List[int]):
     H, W = img_size
     C = windows.shape[-1]
@@ -753,7 +721,7 @@ def grid_partition(x, grid_size: List[int]):
     return windows
 
 
-@register_notrace_function  # reason: int argument is a Proxy
+@register_notrace_function  
 def grid_reverse(windows, grid_size: List[int], img_size: List[int]):
     H, W = img_size
     C = windows.shape[-1]
@@ -778,9 +746,6 @@ def get_rel_pos_cls(cfg: MaxxVitTransformerCfg, window_size):
 
 
 class PartitionAttentionCl(nn.Module):
-    """Grid or Block partition + Attn + FFN.
-    NxC 'channels last' tensor layout.
-    """
 
     def __init__(
         self,
@@ -855,9 +820,6 @@ class PartitionAttentionCl(nn.Module):
 
 
 class ParallelPartitionAttention(nn.Module):
-    """Experimental. Grid and Block partition + single FFN
-    NxC tensor layout.
-    """
 
     def __init__(
         self,
@@ -869,7 +831,7 @@ class ParallelPartitionAttention(nn.Module):
         assert dim % 2 == 0
         norm_layer = partial(
             get_norm_layer(cfg.norm_layer_cl), eps=cfg.norm_eps
-        )  # NOTE this block is channels-last
+        )  
         act_layer = get_act_layer(cfg.act_layer)
 
         assert cfg.window_size == cfg.grid_size
@@ -956,7 +918,7 @@ def window_partition_nchw(x, window_size: List[int]):
     return windows
 
 
-@register_notrace_function  # reason: int argument is a Proxy
+@register_notrace_function  
 def window_reverse_nchw(windows, window_size: List[int], img_size: List[int]):
     H, W = img_size
     C = windows.shape[1]
@@ -980,7 +942,7 @@ def grid_partition_nchw(x, grid_size: List[int]):
     return windows
 
 
-@register_notrace_function  # reason: int argument is a Proxy
+@register_notrace_function  
 def grid_reverse_nchw(windows, grid_size: List[int], img_size: List[int]):
     H, W = img_size
     C = windows.shape[1]
@@ -992,10 +954,6 @@ def grid_reverse_nchw(windows, grid_size: List[int], img_size: List[int]):
 
 
 class PartitionAttention2d(nn.Module):
-    """Grid or Block partition + Attn + FFN
-
-    '2D' NCHW tensor layout.
-    """
 
     def __init__(
         self,
@@ -1199,10 +1157,6 @@ def _overlay_kwargs(cfg: AstroformerCfg, **kwargs):
 
 
 class MaxxVit(nn.Module):
-    """CoaTNet + MaxVit base model.
-
-    Highly configurable for different block compositions, tensor layouts, pooling types.
-    """
 
     def __init__(
         self,
@@ -1291,7 +1245,6 @@ class MaxxVit(nn.Module):
                 norm_layer=final_norm_layer,
             )
         else:
-            # standard classifier head w/ norm, pooling, fc classifier
             self.norm = final_norm_layer(self.num_features)
             self.head = ClassifierHead(
                 self.num_features,
@@ -1300,7 +1253,6 @@ class MaxxVit(nn.Module):
                 drop_rate=drop_rate,
             )
 
-        # Weight init (default PyTorch init works well for AdamW if scheme not set)
         assert cfg.weight_init in (
             "",
             "normal",

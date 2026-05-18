@@ -1,68 +1,68 @@
 # COVERT
 
-本项目的主运行入口为 `federated_main.py`。如果你主要是想运行代码，重点关注环境准备、数据准备、运行命令和输出结果即可。
+The main entry point of this project is `federated_main.py`. If your primary goal is to run the code, you mainly need to focus on environment setup, data preparation, run commands, and output results.
 
-## 1. 环境准备
+## 1. Environment Setup
 
-建议使用 Python 3.9 左右的环境。
+It is recommended to use a Python 3.9 environment or a similar version.
 
-常用依赖：
+Common dependencies:
 
 ```bash
 pip install torch torchvision tensorboardX tqdm timm pillow matplotlib numpy
 ```
 
-如果使用 GPU，请根据自己的 CUDA 版本安装对应版本的 PyTorch。
+If you use a GPU, please install the corresponding version of PyTorch according to your CUDA version.
 
-## 2. 主程序入口
+## 2. Main Program Entry
 
-主运行脚本为：
+The main execution script is:
 
 ```bash
 python federated_main.py
 ```
 
-程序会自动完成：
+The program will automatically complete:
 
-- 解析命令行参数
-- 加载数据集并划分客户端数据
-- 构建全局模型
-- 执行联邦训练
-- 在训练过程中评估测试精度和攻击成功率
-- 保存模型、日志和曲线图
+- Parse command-line arguments
+- Load the dataset and split client data
+- Build the global model
+- Perform federated training
+- Evaluate test accuracy and attack success rate during training
+- Save models, logs, and plots
 
-## 3. 数据准备
+## 3. Data Preparation
 
-当前代码支持以下数据集：
+The current code supports the following datasets:
 
 - `cifar`
 - `tinyimagenet`
 - `gtsrb`
 
-数据路径定义在 `utils.py` 中，默认如下。
+The data paths are defined in `utils.py`, with the following defaults.
 
 ### CIFAR-10
 
-默认路径：
+Default path:
 
 ```text
 ./data/cifar/
 ```
 
-说明：
+Description:
 
-- 使用 `torchvision.datasets.CIFAR10`
-- 若本地不存在，会在首次运行时自动下载
+- Uses `torchvision.datasets.CIFAR10`
+- If it does not exist locally, it will be downloaded automatically on the first run
 
 ### Tiny-ImageNet
 
-默认路径：
+Default path:
 
 ```text
 ./data/tiny-imagenet-200/
 ```
 
-目录结构应类似：
+The directory structure should be similar to:
 
 ```text
 data/tiny-imagenet-200/
@@ -74,60 +74,60 @@ data/tiny-imagenet-200/
 
 ### GTSRB
 
-默认路径：
+Default path:
 
 ```text
 ./data/GTSRB/Final_Training/Images
 ```
 
-要求类别图片按子文件夹组织。
+The category images are expected to be organized into subfolders.
 
-## 4. 预训练模型
+## 4. Pretrained Models
 
-当前 `federated_main.py` 中，`cifar`、`tinyimagenet` 和 `gtsrb` 分支里的预训练模型加载语句都已经被注释掉了。也就是说：
+In the current `federated_main.py`, the pretrained model loading statements in the `cifar`, `tinyimagenet`, and `gtsrb` branches have all been commented out. That means:
 
-- 默认情况下，代码会从随机初始化开始训练
-- 运行前不再强制要求准备 `./pretrained/...` 下的模型文件
+- By default, the code starts training from random initialization
+- It is no longer mandatory to prepare model files under `./pretrained/...` before running
 
-如果你之后希望重新启用预训练模型，可以手动取消 `federated_main.py` 中对应的 `load_state_dict(...)` 注释，并准备相应权重文件。
+If you want to re-enable pretrained models later, you can manually uncomment the corresponding `load_state_dict(...)` lines in `federated_main.py` and prepare the corresponding weight files.
 
-## 5. 运行示例
+## 5. Run Examples
 
-### 示例 1：CIFAR-10，IID
+### Example 1: CIFAR-10, IID
 
 ```bash
 python federated_main.py --dataset cifar --iid 1 --epochs 300 --num_users 100 --frac 0.1 --local_ep 2 --local_bs 32 --optimizer adam --lr 0.001
 ```
 
-### 示例 2：CIFAR-10，Non-IID
+### Example 2: CIFAR-10, Non-IID
 
 ```bash
 python federated_main.py --dataset cifar --iid 0 --epochs 300 --num_users 100 --frac 0.1 --local_ep 2 --local_bs 32 --optimizer adam --lr 0.001
 ```
 
-## 6. 常用参数说明
+## 6. Common Parameter Descriptions
 
-主要参数定义在 `options.py` 中。
+The main parameters are defined in `options.py`.
 
-- `--dataset`：数据集名称，可选 `cifar`、`tinyimagenet`、`gtsrb`
-- `--epochs`：联邦训练轮数
-- `--num_users`：客户端总数
-- `--frac`：每轮参与训练的客户端比例
-- `--local_ep`：每个客户端的本地训练轮数
-- `--local_bs`：本地 batch size
-- `--lr`：本地优化器学习率
-- `--global_lr`：全局聚合学习率，默认 `1.0`
-- `--optimizer`：优化器类型，可选 `sgd` 或 `adam`
-- `--iid`：是否采用 IID 划分，`1` 表示 IID，`0` 表示 Non-IID
-- `--verbose`：是否输出更详细的训练日志
+- `--dataset`: Dataset name, options are `cifar`, `tinyimagenet`, `gtsrb`
+- `--epochs`: Number of federated training rounds
+- `--num_users`: Total number of clients
+- `--frac`: Proportion of clients participating in each round
+- `--local_ep`: Number of local training epochs for each client
+- `--local_bs`: Local batch size
+- `--lr`: Learning rate of the local optimizer
+- `--global_lr`: Global aggregation learning rate, default is `1.0`
+- `--optimizer`: Optimizer type, options are `sgd` or `adam`
+- `--iid`: Whether to use IID partitioning, `1` means IID and `0` means Non-IID
+- `--verbose`: Whether to output more detailed training logs
 
-## 7. 输出结果
+## 7. Output Results
 
-当前代码运行后，常见输出包括：
+After the current code runs, common outputs include:
 
-- 控制台训练日志
-- `output.txt`：标准输出重定向日志
-- `logs/`：TensorBoard 日志
-- `save/global_model.pth`：训练完成后的全局模型
-- `save/objects/*.pkl`：训练损失和训练精度记录
-- `save/*.png`：损失、精度、攻击成功率曲线图
+- Training logs in the console
+- `output.txt`: Standard output redirection log
+- `logs/`: TensorBoard logs
+- `save/global_model.pth`: Global model after training
+- `save/objects/*.pkl`: Records of training loss and training accuracy
+- `save/*.png`: Curves of loss, accuracy, and attack success rate

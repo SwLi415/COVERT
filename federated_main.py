@@ -70,7 +70,6 @@ def build_local_update(args, train_dataset, user_groups, logger, idx, epoch, lay
 if __name__ == '__main__':
     start_time = time.time()
 
-    # 定义日志路径
     path_project = os.path.abspath('..')
     logger = SummaryWriter('./logs')
 
@@ -79,11 +78,9 @@ if __name__ == '__main__':
 
     device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
-    # 加载数据集以及客户端数据划分
     train_dataset, test_dataset, user_groups = get_dataset(args)
     trigger_train_loader = DataLoader(train_dataset, batch_size=args.local_bs, shuffle=True)
 
-    # 构建模型
     if args.dataset == 'cifar':
         global_model = ResNet18(10)
         # global_model.load_state_dict(torch.load('./pretrained/cifar/global_model_cifar.pth'))
@@ -99,15 +96,12 @@ if __name__ == '__main__':
         global_model = ResNet18(43)
         # global_model.load_state_dict(torch.load('./pretrained/gtsrb/global_model_gtsrb.pth', map_location=device))
 
-    # 设置模型为训练模式并移动到设备上
     global_model.to(device)
     global_model.train()
     print(global_model)
 
-    # 初始化全局模型参数
     global_weights = global_model.state_dict()
 
-    # 训练过程记录
     train_loss, train_accuracy = [], []
     test_accuracy = []
     attack_success_rate = []
@@ -118,12 +112,11 @@ if __name__ == '__main__':
     weight_history = {}
     conv_layers = {}
     for name, param in global_model.named_parameters():
-        if 'weight' in name and len(param.shape) == 4:  # 卷积层权重通常是 4 维张量
+        if 'weight' in name and len(param.shape) == 4:
             conv_layers[name] = True
 
     print(f"找到以下卷积层: {list(conv_layers.keys())}")
 
-    # 标记当前本地模型是否为良性模型，初始化全为 True
     benign_label = [True] * args.num_users
     print('初始化本地模型动态标签:', benign_label)
 
@@ -132,9 +125,8 @@ if __name__ == '__main__':
         print(f'\n | Global Training Round : {epoch + 1} |\n')
 
         global_model.train()
-        m = max(int(args.frac * args.num_users), 1)  # 每轮参与训练的客户端数量
-        idxs_users = np.random.choice(range(args.num_users), m, replace=False)  # 随机采样参与本轮训练的客户端
-        # 以下逻辑可用于保证攻击轮次的恶意客户端被选中
+        m = max(int(args.frac * args.num_users), 1)
+        idxs_users = np.random.choice(range(args.num_users), m, replace=False)
         # if epoch in poison_epoch[0] and 0 not in idxs_users:
         #     idxs_users[0] = 0
         # elif epoch in poison_epoch[1] and 1 not in idxs_users:
@@ -171,7 +163,6 @@ if __name__ == '__main__':
 
         global_model.eval()
         list_acc, list_loss = [], []
-        # 将全局模型分发到所有客户端，并在本地测试集上做评估
         for c in range(args.num_users):
             local_model = build_local_update(
                 args, train_dataset, user_groups, logger, c, epoch, layer_neuron_indices, trigger_value
@@ -192,7 +183,6 @@ if __name__ == '__main__':
         test_accuracy.append(acc)
 
         if epoch in range(0, 10):
-            # 保存前 10 轮的卷积层权重，用于后续神经元分析
             for name in conv_layers:
                 weight_data = global_model.state_dict()[name].clone().cpu().numpy()
                 if name not in weight_history:
@@ -211,7 +201,6 @@ if __name__ == '__main__':
                 trigger_lr=0.2,
             )
 
-    # 训练完成后，在测试集上评估全局模型
     test_acc, test_loss = test_inference(args, global_model, test_dataset, trigger_value, poisoned=False)
     test_asr, _ = test_inference(args, global_model, test_dataset, trigger_value, poisoned=True)
 
@@ -222,7 +211,6 @@ if __name__ == '__main__':
 
     torch.save(global_model.state_dict(), './save/global_model.pth')
 
-    # 保存训练损失和训练精度
     file_name = './save/objects/{}_{}_{}_C[{}]_iid[{}]_E[{}]_B[{}].pkl'. \
         format(args.dataset, args.model, args.epochs, args.frac, args.iid,
                args.local_ep, args.local_bs)
@@ -232,13 +220,11 @@ if __name__ == '__main__':
 
     print('\n Total Run Time: {0:0.4f}'.format(time.time() - start_time))
 
-    # 绘图
     import matplotlib
     import matplotlib.pyplot as plt
 
     matplotlib.use('Agg')
 
-    # 训练损失曲线
     plt.figure(figsize=(12, 9))
     plt.title('Training Loss vs Communication rounds')
     plt.plot(range(len(train_loss)), train_loss, color='r')
@@ -248,7 +234,6 @@ if __name__ == '__main__':
                 format(args.dataset, args.model, args.epochs, args.frac,
                        args.iid, args.local_ep, args.local_bs))
 
-    # 平均训练精度曲线
     plt.figure(figsize=(12, 9))
     plt.title('Average Accuracy vs Communication rounds')
     plt.plot(range(len(train_accuracy)), train_accuracy, color='k')
@@ -258,7 +243,6 @@ if __name__ == '__main__':
                 format(args.dataset, args.model, args.epochs, args.frac,
                        args.iid, args.local_ep, args.local_bs))
 
-    # 攻击成功率曲线
     plt.figure(figsize=(12, 9))
     plt.title('Attack Success Rate vs Communication rounds')
     plt.plot(range(len(attack_success_rate)), attack_success_rate, color='r')
@@ -268,7 +252,6 @@ if __name__ == '__main__':
                 format(args.dataset, args.model, args.epochs, args.frac,
                        args.iid, args.local_ep, args.local_bs))
 
-    # 测试精度曲线
     plt.figure(figsize=(12, 9))
     plt.title('Test Accuracy vs Communication rounds')
     plt.plot(range(len(test_accuracy)), test_accuracy, color='r')

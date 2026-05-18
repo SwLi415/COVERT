@@ -10,14 +10,14 @@ from torch.utils.data import DataLoader, Dataset
 from utils import project_within_radius
 
 
-adversary_list = [0, 1, 2]    # 恶意客户端索引列表
+adversary_list = [0, 1, 2]
 poison_epoch = {
     0: range(12, 113),
     1: range(12, 113),
     2: range(12, 113),
 }
-poisoning_per_batch = 8   # 每个 batch 中投毒的样本数
-scale_weights = 1  # 按论文设定可用于缩放权重更新
+poisoning_per_batch = 8
+scale_weights = 1
 poison_label_swap = 2
 
 
@@ -29,7 +29,6 @@ class TargetNeuronActivation:
         self.target_neuron_index = target_neuton_index
 
     def __call__(self, module, input, output):
-        # 保存目标神经元的激活输出
         self.activation = output
 
 
@@ -66,16 +65,11 @@ class LocalUpdate(object):
         self.trigger_value = trigger_value
 
     def train_val_test(self, dataset, idxs):
-        """
-        按照 8:1:1 划分训练、验证和测试数据加载器。
-        """
 
         idxs_train = idxs[:int(0.8 * len(idxs))]
         idxs_val = idxs[int(0.8 * len(idxs)):int(0.9 * len(idxs))]
         idxs_test = idxs[int(0.9 * len(idxs)):]
 
-        # 顺序训练客户端时，同时只会活跃少量 DataLoader。
-        # 这里保守地使用 2 个 worker，在稳定性和吞吐之间做平衡。
         num_workers = min(2, os.cpu_count() or 0)
         loader_kwargs = {
             'num_workers': num_workers,
@@ -113,7 +107,6 @@ class LocalUpdate(object):
         local_ep = self.args.local_ep
         generate_trigger = False
 
-        # 反向传播时仅允许指定神经元相关梯度通过
         def selective_grad_update_hook(module, grad_input, grad_output):
             module_name = None
             for name, m in model.named_modules():
@@ -132,7 +125,6 @@ class LocalUpdate(object):
                     mask = torch.zeros_like(grad_input[0])
 
                     for idx in indices:
-                        # 索引格式为 [out_channel, in_channel, kernel_height, kernel_width]
                         if len(idx) == 4:
                             oc, ic, kh, kw = idx
                             mask[oc, ic, kh, kw] = 1
@@ -141,12 +133,10 @@ class LocalUpdate(object):
                     return (modified_grad,) + grad_input[1:]
 
                 elif isinstance(module, nn.Linear) and grad_input[0] is not None:
-                    # 如有需要，可以在这里扩展线性层的选择性梯度控制
                     pass
 
             return grad_input * 0
 
-        # 余弦退火学习率
         lr = 0.5 * self.args.lr * (1 + math.cos(math.pi * self.global_round / self.args.epochs))
 
         if self.idx in adversary_list:
@@ -155,7 +145,6 @@ class LocalUpdate(object):
                     adversarial_index = temp_index % 3
                     break
 
-        # 设置本地优化器
         if (self.idx in adversary_list) and (self.global_round in poison_epoch[adversarial_index]):
             local_ep = 4
             target_model = copy.deepcopy(model)
@@ -220,7 +209,6 @@ class LocalUpdate(object):
                 batch_loss.append(loss.item())
             epoch_loss.append(sum(batch_loss) / len(batch_loss))
 
-        # 如果需要，可以在这里做攻击缩放
         # if ((self.idx in adversary_list) and (self.global_round in poison_epoch[adversarial_index])
         #         and not generate_trigger):
         #     for key, value in model.state_dict().items():
@@ -228,19 +216,16 @@ class LocalUpdate(object):
         #         new_value = target_value + (value - target_value) * scale_weights
         #         model.state_dict()[key].copy_(new_value)
 
-        # 如果需要，可以在这里做投影约束
         # project_within_radius(model, target_model, 1.0)
 
         return model.state_dict(), sum(epoch_loss) / len(epoch_loss)
 
     def inference(self, model):
-        """返回本地推理精度和损失。"""
         model.eval()
         loss, total, correct, att_success = 0.0, 0.0, 0.0, 0.0
 
         with torch.no_grad():
             for batch_idx, (images, labels) in enumerate(self.testloader):
-                # 本地测试时，如果当前客户端为恶意客户端，则对测试样本加触发器
                 adversarial_index = -1
                 images = images.to(self.device, non_blocking=True)
                 labels = labels.to(self.device, non_blocking=True)
@@ -279,7 +264,6 @@ class LocalUpdate(object):
 
 
 def test_inference(args, model, test_dataset, trigger_value, poisoned=True):
-    """返回全局测试精度和损失。"""
 
     model.eval()
     loss, total, correct, att_success = 0.0, 0.0, 0.0, 0.0

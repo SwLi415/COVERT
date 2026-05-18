@@ -2,7 +2,6 @@ import copy
 import torch
 import random
 
-# 分布式攻击的四种触发器，每种更改4个像素点，全局触发器是将4种trigger合并
 poison_pattern = {'0': [[0, 0], [0, 1], [0, 2], [0, 3]],
                   '1': [[1, 4], [1, 5], [1, 6], [1, 7]],
                   '2': [[2, 6], [2, 7], [2, 8], [2, 9]]}
@@ -10,7 +9,7 @@ poison_pattern = {'0': [[0, 0], [0, 1], [0, 2], [0, 3]],
 
 def add_trigger(image, adversarial_index, dataset, trigger_value):
     new_image = image.clone() if torch.is_tensor(image) else copy.deepcopy(image)
-    if adversarial_index == -1:     # adversarial_index为-1时采用全局触发器
+    if adversarial_index == -1:
         for i in range(0, len(poison_pattern)):
             poi_patterns = poison_pattern[str(i)]
             for j in range(0, len(poi_patterns)):
@@ -26,10 +25,6 @@ def add_trigger(image, adversarial_index, dataset, trigger_value):
 
 
 def add_trigger_batch(images, adversarial_index, dataset, trigger_value, limit=None):
-    """
-    Batched trigger injection for better GPU utilization.
-    When limit is provided, only the first `limit` images in the batch are poisoned.
-    """
     new_images = images.clone()
     batch_size = new_images.size(0)
     poison_count = batch_size if limit is None else min(limit, batch_size)

@@ -16,10 +16,6 @@ from torch.nn.utils import parameters_to_vector
 
 
 def get_dataset(args):
-    """ Returns train and test datasets and a user group which is a dict where
-    the keys are the user index and the values are the corresponding data for
-    each of those users.
-    """
 
     if args.dataset == 'cifar':
         data_dir = './data/cifar/'
@@ -41,17 +37,12 @@ def get_dataset(args):
         test_dataset = datasets.CIFAR10(data_dir, train=False, download=True,
                                       transform=test_transform)
 
-        # sample training data amongst users
         if args.iid:
-            # Sample IID user data from Mnist
             user_groups = cifar_iid(train_dataset, args.num_users)
         else:
-            # Sample Non-IID user data from Mnist
             if args.unequal:
-                # Chose uneuqal splits for every user
                 raise NotImplementedError()
             else:
-                # Chose euqal splits for every user
                 user_groups = cifar_noniid(train_dataset, args.num_users, 0.9)
     elif args.dataset == 'tinyimagenet':
         data_dir = './data/tiny-imagenet-200/'
@@ -79,12 +70,12 @@ def get_dataset(args):
     elif args.dataset == 'gtsrb':
         data_dir = './data/GTSRB/Final_Training/Images'
         train_transform = transforms.Compose([
-            transforms.Resize((32, 32)),  # 缩放到 32x32
+            transforms.Resize((32, 32)),
             transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),  # 转换为张量
+            transforms.ToTensor(),
         ])
         test_transform = transforms.Compose([
-            transforms.Resize((32, 32)),  # 缩放到 32x32
+            transforms.Resize((32, 32)),
             transforms.ToTensor(),
         ])
         train_dataset = GTSRBDataset(data_dir, train=True, transform=train_transform)
@@ -101,9 +92,6 @@ def get_dataset(args):
 
 
 def average_weights(w):
-    """
-    Returns the average of the weights.
-    """
     w_avg = copy.deepcopy(w[0])
     for key in w_avg.keys():
         for i in range(1, len(w)):
@@ -131,23 +119,16 @@ def exp_details(args):
 
 
 def project_within_radius(model, global_model, r=1.0):
-    """
-    投影model参数到距离global_model参数不超过r的球体内
-    """
-    # 先拼合为向量
     model_vec = torch.cat([p.data.view(-1) for p in model.parameters()])
     global_vec = torch.cat([p.data.view(-1) for p in global_model.parameters()])
     diff = model_vec - global_vec
     norm = diff.norm()
     print(norm)
     if norm > r:
-        # 投影
         diff = diff * (r / norm)
         new_params = global_vec + diff
-        # 拆分回各层参数
         idx = 0
         for p in model.parameters():
             numel = p.data.numel()
             p.data.copy_(new_params[idx:idx+numel].view_as(p.data))
             idx += numel
-    # 如果本来就在球体内，则不变
