@@ -83,14 +83,14 @@ class LocalUpdate(object):
         )
         validloader = DataLoader(
             DatasetSplit(dataset, idxs_val),
-            batch_size=int(len(idxs_val) / 10),
+            batch_size=max(1, int(len(idxs_val) / 10)),
             shuffle=False,
             drop_last=True,
             **loader_kwargs,
         )
         testloader = DataLoader(
             DatasetSplit(dataset, idxs_test),
-            batch_size=int(len(idxs_test) / 10),
+            batch_size=max(1, int(len(idxs_test) / 10)),
             shuffle=False,
             drop_last=True,
             **loader_kwargs,
@@ -116,16 +116,18 @@ class LocalUpdate(object):
                 else:
                     print('not')
 
-            if module_name in self.layer_neuron_indices.key():
-                indices = self.layer_neuron_indices[module_name]
+            module_key = f'{module_name}.weight' if module_name is not None else None
+
+            if self.layer_neuron_indices is not None and module_key in self.layer_neuron_indices:
+                indices = self.layer_neuron_indices[module_key]
 
                 if isinstance(module, nn.Conv2d) and grad_input[0] is not None:
                     mask = torch.zeros_like(grad_input[0])
 
                     for idx in indices:
-                        if len(idx) == 4:
-                            oc, ic, kh, kw = idx
-                            mask[oc, ic, kh, kw] = 1
+                        idx = int(idx)
+                        if 0 <= idx < mask.shape[1]:
+                            mask[:, idx, :, :] = 1
 
                     modified_grad = grad_input[0] * mask
                     return (modified_grad,) + grad_input[1:]
@@ -133,7 +135,10 @@ class LocalUpdate(object):
                 elif isinstance(module, nn.Linear) and grad_input[0] is not None:
                     pass
 
-            return grad_input * 0
+            return tuple(
+                torch.zeros_like(grad) if grad is not None else None
+                for grad in grad_input
+            )
 
         lr = 0.5 * self.args.lr * (1 + math.cos(math.pi * self.global_round / self.args.epochs))
 
@@ -267,7 +272,7 @@ def test_inference(args, model, test_dataset, trigger_value, poisoned=True):
     loss, total, correct, att_success = 0.0, 0.0, 0.0, 0.0
 
     device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
-    criterion = nn.NLLLoss().to(device)
+    criterion = nn.CrossEntropyLoss().to(device)
 
     if poisoned:
         range_id = getattr(test_dataset, '_non_target_indices_cache', None)
